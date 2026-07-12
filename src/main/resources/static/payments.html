@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payments · FitCore</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<link href="css/material-symbols.css" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebarRoot"></div>
+  <div class="main-content" id="mainContent">
+    <div id="topbarRoot"></div>
+    <div class="page-body">
+
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+          <div class="card-glass stat-card">
+            <div class="stat-icon" style="background:rgba(34,197,94,0.12);"><span class="material-symbols-outlined" style="color:var(--success);">payments</span></div>
+            <div class="stat-value" id="totalRevenueStat">—</div>
+            <div class="stat-label">Total Revenue</div>
+          </div>
+        </div>
+        <div class="col-6 col-lg-3">
+          <div class="card-glass stat-card">
+            <div class="stat-icon" style="background:rgba(37,99,235,0.12);"><span class="material-symbols-outlined" style="color:var(--secondary);">receipt_long</span></div>
+            <div class="stat-value" id="totalTxnStat">—</div>
+            <div class="stat-label">Total Transactions</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+          <div class="card-glass p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0" style="font-weight:600;">Payment History</h6>
+              <button class="btn btn-gradient ripple" data-bs-toggle="modal" data-bs-target="#paymentModal">
+                <span class="material-symbols-outlined align-middle" style="font-size:18px;">add</span> Record Payment
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="table-modern">
+                <thead><tr><th>Member</th><th>Amount</th><th>Method</th><th>Transaction ID</th><th>Status</th><th>Date</th><th></th></tr></thead>
+                <tbody id="paymentsBody">
+                  <tr><td colspan="7"><div class="skeleton" style="height:20px;"></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-4">
+          <div class="card-glass p-4 h-100 text-center">
+            <h6 style="font-weight:600;" class="mb-1">Pay via UPI</h6>
+            <p class="text-secondary mb-3" style="font-size:0.82rem;">Show this QR at the front desk — the member scans with any UPI app, then staff confirms once payment lands.</p>
+
+            <select class="form-select form-select-sm mb-2" id="upiMemberSelect"></select>
+            <input type="number" class="form-control form-control-sm mb-3" id="upiAmount" placeholder="Amount (₹)" min="1" step="0.01">
+            <button class="btn btn-ghost btn-sm ripple w-100 mb-3" id="generateUpiQrBtn">Generate QR</button>
+
+            <div id="upiQrWrap" style="display:none;">
+              <img id="upiQrImg" src="" alt="UPI QR code" style="width:180px; height:180px; margin:0 auto; border-radius:12px; border:1px solid var(--border);">
+              <p class="mt-2 mb-1" style="font-size:0.8rem; font-weight:600;">UPI ID</p>
+              <p class="mb-3" style="font-size:0.82rem; color:var(--text-secondary); word-break:break-all;" id="upiIdText">—</p>
+              <button class="btn btn-gradient btn-sm ripple w-100" id="confirmUpiPaymentBtn">
+                <span class="material-symbols-outlined align-middle" style="font-size:16px;">check_circle</span> Confirm Payment Received
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Record Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:var(--radius-lg); border:none;">
+      <div class="modal-header border-0">
+        <h5 class="modal-title" style="font-weight:600;">Record Payment</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="paymentForm">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Member</label>
+            <select class="form-select" id="memberSelect" required></select>
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label">Amount (₹)</label>
+              <input type="number" class="form-control" id="amount" min="0" step="0.01" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Payment method</label>
+              <select class="form-select" id="paymentMethod">
+                <option>CASH</option><option>CARD</option><option>UPI</option><option>NET_BANKING</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">Transaction ID <span class="text-secondary">(optional)</span></label>
+            <input type="text" class="form-control" id="transactionId" placeholder="Auto-generated if left blank">
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-ghost ripple" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-gradient ripple" id="savePaymentBtn">Record Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="js/bootstrap.bundle.min.js"></script>
+<script src="js/app.js"></script>
+<script src="js/layout.js"></script>
+<script>
+  renderLayout('payments');
+
+  const chipClass = (status) => ({
+    SUCCESS: 'chip-active', PENDING: 'chip-suspended', FAILED: 'chip-expired', REFUNDED: 'chip-cancelled'
+  }[status] || 'chip-cancelled');
+
+  async function loadMembersForSelect() {
+    try {
+      const res = await Api.get('/members?page=0&size=200');
+      const options = res.data.content.map(m => `<option value="${m.id}">${m.name} (${m.memberCode})</option>`).join('');
+      document.getElementById('memberSelect').innerHTML = options;
+      document.getElementById('upiMemberSelect').innerHTML = options;
+    } catch (err) {
+      Toast.show('Could not load members', 'error');
+    }
+  }
+
+  document.getElementById('generateUpiQrBtn').addEventListener('click', async () => {
+    const memberId = document.getElementById('upiMemberSelect').value;
+    const amount = parseFloat(document.getElementById('upiAmount').value);
+    if (!memberId || !amount || amount <= 0) {
+      Toast.show('Select a member and enter a valid amount', 'error');
+      return;
+    }
+    try {
+      const [qrRes, detailsRes] = await Promise.all([
+        Api.get(`/payments/upi-qrcode?memberId=${memberId}&amount=${amount}`),
+        Api.get('/payments/upi-details')
+      ]);
+      document.getElementById('upiQrImg').src = qrRes.data;
+      document.getElementById('upiIdText').textContent = detailsRes.data.upiId;
+      document.getElementById('upiQrWrap').style.display = 'block';
+    } catch (err) {
+      Toast.show(err.message || 'Failed to generate QR code', 'error');
+    }
+  });
+
+  document.getElementById('confirmUpiPaymentBtn').addEventListener('click', async () => {
+    const memberId = document.getElementById('upiMemberSelect').value;
+    const amount = parseFloat(document.getElementById('upiAmount').value);
+    const btn = document.getElementById('confirmUpiPaymentBtn');
+    btn.disabled = true;
+    try {
+      await Api.post('/payments', { memberId, amount, paymentMethod: 'UPI' });
+      Toast.show('Payment confirmed — dashboard updated in real time', 'success');
+      document.getElementById('upiQrWrap').style.display = 'none';
+      document.getElementById('upiAmount').value = '';
+      loadPayments();
+    } catch (err) {
+      Toast.show(err.message || 'Failed to confirm payment', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function loadPayments() {
+    const tbody = document.getElementById('paymentsBody');
+    try {
+      const res = await Api.get('/payments');
+      const payments = res.data;
+
+      document.getElementById('totalTxnStat').textContent = payments.length;
+      const total = payments.filter(p => p.status === 'SUCCESS').reduce((sum, p) => sum + p.amount, 0);
+      document.getElementById('totalRevenueStat').textContent = '₹' + total.toLocaleString();
+
+      if (!payments.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-secondary py-4">No payments recorded yet</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = payments
+        .sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate))
+        .map(p => `
+        <tr>
+          <td style="font-weight:600;">${p.memberName}</td>
+          <td>₹${p.amount.toLocaleString()}</td>
+          <td>${p.paymentMethod}</td>
+          <td style="font-size:0.78rem; color:var(--text-secondary);">${p.transactionId}</td>
+          <td><span class="chip ${chipClass(p.status)}">${p.status}</span></td>
+          <td>${new Date(p.paymentDate).toLocaleString()}</td>
+          <td class="text-end">
+            <button class="btn btn-ghost btn-sm ripple" onclick="deletePayment('${p.id}')">
+              <span class="material-symbols-outlined" style="font-size:16px; color:var(--danger);">delete</span>
+            </button>
+          </td>
+        </tr>`).join('');
+    } catch (err) {
+      Toast.show(err.message || 'Failed to load payments', 'error');
+    }
+  }
+
+  async function deletePayment(id) {
+    if (!confirm('Delete this payment record?')) return;
+    try {
+      await Api.del(`/payments/${id}`);
+      Toast.show('Payment deleted', 'success');
+      loadPayments();
+    } catch (err) {
+      Toast.show(err.message || 'Failed to delete payment', 'error');
+    }
+  }
+
+  document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      memberId: document.getElementById('memberSelect').value,
+      amount: parseFloat(document.getElementById('amount').value),
+      paymentMethod: document.getElementById('paymentMethod').value,
+      transactionId: document.getElementById('transactionId').value.trim() || null
+    };
+    const btn = document.getElementById('savePaymentBtn');
+    btn.disabled = true;
+    try {
+      await Api.post('/payments', payload);
+      Toast.show('Payment recorded', 'success');
+      bootstrap.Modal.getInstance(document.getElementById('paymentModal')).hide();
+      document.getElementById('paymentForm').reset();
+      loadPayments();
+    } catch (err) {
+      Toast.show(err.message || 'Failed to record payment', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  (async function init() {
+    await loadMembersForSelect();
+    await loadPayments();
+  })();
+</script>
+</body>
+</html>

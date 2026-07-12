@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Dashboard · FitCore</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<link href="css/material-symbols.css" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebarRoot"></div>
+
+  <div class="main-content" id="mainContent">
+    <div id="topbarRoot"></div>
+
+    <div class="page-body">
+
+      <div class="row g-3 mb-4">
+        <div class="col-lg-8">
+          <div class="card-glass p-4 h-100">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+              <div>
+                <h5 class="mb-1" id="welcomeName" style="font-weight:700;">Welcome back</h5>
+                <div class="text-secondary" style="font-size:0.85rem;" id="memberCodeLine">&nbsp;</div>
+              </div>
+              <span class="chip" id="statusChip">&nbsp;</span>
+            </div>
+            <div class="row g-3 mt-2">
+              <div class="col-6 col-md-3">
+                <div class="text-secondary" style="font-size:0.75rem;">Plan</div>
+                <div style="font-weight:600;" id="planName">—</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-secondary" style="font-size:0.75rem;">Joined</div>
+                <div style="font-weight:600;" id="joinDate">—</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-secondary" style="font-size:0.75rem;">Expires</div>
+                <div style="font-weight:600;" id="expiryDate">—</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="text-secondary" style="font-size:0.75rem;">Phone</div>
+                <div style="font-weight:600;" id="memberPhone">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card-glass p-4 h-100 text-center d-flex flex-column justify-content-center">
+            <div class="text-secondary" style="font-size:0.8rem;">Total Paid</div>
+            <div style="font-size:2rem; font-weight:700;" id="totalPaid">₹0</div>
+            <div class="text-secondary" style="font-size:0.78rem;" id="paymentCountLine">0 payments on record</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-glass p-4 mb-4">
+        <h6 class="mb-3" style="font-weight:600;">Available Trainers</h6>
+        <div class="row g-3" id="trainersGrid">
+          <div class="col-12 text-secondary text-center py-3">Loading...</div>
+        </div>
+      </div>
+
+      <div class="card-glass p-4 mb-4">
+        <h6 class="mb-3" style="font-weight:600;">Payment History</h6>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Status</th>
+                <th>Transaction ID</th>
+                <th>Receipt</th>
+              </tr>
+            </thead>
+            <tbody id="paymentsBody">
+              <tr><td colspan="6" class="text-secondary text-center py-4">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card-glass p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h6 class="mb-0" style="font-weight:600;">My Attendance</h6>
+          <span class="text-secondary" style="font-size:0.8rem;" id="attendanceCountLine">&nbsp;</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Check-in</th>
+                <th>Check-out</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceBody">
+              <tr><td colspan="4" class="text-secondary text-center py-4">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/layout.js"></script>
+<script>
+  renderLayout('dashboard');
+
+  const STATUS_CHIP_CLASS = {
+    ACTIVE: 'chip-active',
+    EXPIRED: 'chip-expired',
+    SUSPENDED: 'chip-suspended',
+    CANCELLED: 'chip-cancelled'
+  };
+
+  function formatDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function formatMoney(n) {
+    return '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+
+  async function loadMemberDashboard() {
+    try {
+      const memberRes = await Api.get('/members/me');
+      const member = memberRes.data;
+
+      document.getElementById('welcomeName').textContent = `Welcome back, ${member.name}`;
+      document.getElementById('memberCodeLine').textContent = `Member Code: ${member.memberCode}`;
+      document.getElementById('planName').textContent = member.membershipPlanName || '—';
+      document.getElementById('joinDate').textContent = formatDate(member.joinDate);
+      document.getElementById('expiryDate').textContent = formatDate(member.expiryDate);
+      document.getElementById('memberPhone').textContent = member.phone || '—';
+
+      const chip = document.getElementById('statusChip');
+      const status = member.status || 'ACTIVE';
+      chip.className = 'chip ' + (STATUS_CHIP_CLASS[status] || 'chip-active');
+      chip.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle;">
+        ${status === 'ACTIVE' ? 'check_circle' : 'error'}
+      </span> ${status === 'ACTIVE' ? 'Active' : status.charAt(0) + status.slice(1).toLowerCase()}`;
+
+      const paymentsRes = await Api.get('/payments/me');
+      const payments = paymentsRes.data || [];
+
+      const total = payments
+        .filter(p => p.status === 'SUCCESS')
+        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      document.getElementById('totalPaid').textContent = formatMoney(total);
+      document.getElementById('paymentCountLine').textContent = `${payments.length} payment${payments.length === 1 ? '' : 's'} on record`;
+
+      const tbody = document.getElementById('paymentsBody');
+      if (payments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-secondary text-center py-4">No payments yet</td></tr>';
+      } else {
+        tbody.innerHTML = payments
+          .sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate))
+          .map(p => `
+            <tr>
+              <td>${formatDate(p.paymentDate)}</td>
+              <td>${formatMoney(p.amount)}</td>
+              <td>${p.paymentMethod || '—'}</td>
+              <td><span class="chip ${p.status === 'SUCCESS' ? 'chip-active' : 'chip-expired'}">${p.status}</span></td>
+              <td class="text-secondary">${p.transactionId || '—'}</td>
+              <td>
+                ${p.status === 'SUCCESS' ? `
+                <button class="btn btn-ghost btn-sm ripple" onclick="downloadFile('/api/reports/export/payments/${p.id}/receipt','receipt-${p.id}.pdf')">
+                  <span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">download</span>
+                </button>` : '—'}
+              </td>
+            </tr>
+          `).join('');
+      }
+
+      try {
+        const trainersRes = await Api.get('/trainers/available');
+        const trainers = trainersRes.data || [];
+        const grid = document.getElementById('trainersGrid');
+        grid.innerHTML = trainers.length === 0
+          ? '<div class="col-12 text-secondary text-center py-3">No trainers currently available</div>'
+          : trainers.map(t => `
+              <div class="col-md-4">
+                <div class="p-3" style="border:1px solid var(--border); border-radius:var(--radius-md);">
+                  <div style="font-weight:600;">${t.name}</div>
+                  <div class="text-secondary" style="font-size:0.8rem;">${t.specialization || 'General Trainer'}</div>
+                  <div class="text-secondary" style="font-size:0.78rem; margin-top:4px;">${t.phone || ''}</div>
+                </div>
+              </div>
+            `).join('');
+      } catch (err) {
+        document.getElementById('trainersGrid').innerHTML = '<div class="col-12 text-secondary text-center py-3">Could not load trainers</div>';
+      }
+
+      const attendanceRes = await Api.get('/attendance/me');
+      const records = attendanceRes.data || [];
+      document.getElementById('attendanceCountLine').textContent = `${records.length} visit${records.length === 1 ? '' : 's'} recorded`;
+
+      const attBody = document.getElementById('attendanceBody');
+      if (records.length === 0) {
+        attBody.innerHTML = '<tr><td colspan="4" class="text-secondary text-center py-4">No attendance recorded yet — scan the gym QR code when you arrive</td></tr>';
+      } else {
+        attBody.innerHTML = records
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .map(a => {
+            let duration = '—';
+            if (a.checkIn && a.checkOut) {
+              const mins = Math.round((new Date(a.checkOut) - new Date(a.checkIn)) / 60000);
+              duration = `${Math.floor(mins / 60)}h ${mins % 60}m`;
+            }
+            return `
+              <tr>
+                <td>${formatDate(a.date)}</td>
+                <td>${a.checkIn ? new Date(a.checkIn).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                <td>${a.checkOut ? new Date(a.checkOut).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '<span class="text-secondary">Still checked in</span>'}</td>
+                <td>${duration}</td>
+              </tr>
+            `;
+          }).join('');
+      }
+    } catch (err) {
+      Toast.show(err.message || 'Could not load your dashboard', 'error');
+    }
+  }
+
+  loadMemberDashboard();
+</script>
+</body>
+</html>

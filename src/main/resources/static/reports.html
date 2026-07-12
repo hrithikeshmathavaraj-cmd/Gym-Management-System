@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports · FitCore</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<link href="css/material-symbols.css" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebarRoot"></div>
+  <div class="main-content" id="mainContent">
+    <div id="topbarRoot"></div>
+    <div class="page-body">
+
+      <div class="card-glass p-4 mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div>
+            <h6 class="mb-1" style="font-weight:600;">Export Reports</h6>
+            <p class="mb-0 text-secondary" style="font-size:0.85rem;">Download current data for record-keeping or offline analysis</p>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-ghost ripple" onclick="downloadReport('/api/reports/export/members/excel','members-report.xlsx')">
+              <span class="material-symbols-outlined align-middle" style="font-size:18px;">description</span> Members (Excel)
+            </button>
+            <button type="button" class="btn btn-ghost ripple" onclick="downloadReport('/api/reports/export/members/pdf','members-report.pdf')">
+              <span class="material-symbols-outlined align-middle" style="font-size:18px;">picture_as_pdf</span> Members (PDF)
+            </button>
+            <button type="button" class="btn btn-ghost ripple" onclick="downloadReport('/api/reports/export/payments/excel','payments-report.xlsx')">
+              <span class="material-symbols-outlined align-middle" style="font-size:18px;">description</span> Payments (Excel)
+            </button>
+            <button type="button" class="btn btn-ghost ripple" onclick="downloadReport('/api/reports/export/salary/excel','trainer-salary.xlsx')">
+              <span class="material-symbols-outlined align-middle" style="font-size:18px;">description</span> Trainer Salary (Excel)
+            </button>
+            <button type="button" class="btn btn-ghost ripple" onclick="downloadReport('/api/reports/export/salary/pdf','trainer-salary.pdf')">
+              <span class="material-symbols-outlined align-middle" style="font-size:18px;">picture_as_pdf</span> Trainer Salary (PDF)
+            </button>
+            <button type="button" class="btn btn-ghost ripple" onclick="downloadReport('/api/reports/export/login-activity/excel','login-activity.xlsx')">
+              <span class="material-symbols-outlined align-middle" style="font-size:18px;">description</span> Login Activity (Excel)
+            </button>
+            <button type="button" class="btn btn-ghost ripple" onclick="downloadReport('/api/reports/export/login-activity/pdf','login-activity.pdf')">
+              <span class="material-symbols-outlined align-middle" style="font-size:18px;">picture_as_pdf</span> Login Activity (PDF)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card-glass p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0" style="font-weight:600;">Expiring Soon</h6>
+              <select class="form-select form-select-sm w-auto" id="expiryWindow">
+                <option value="7">Next 7 days</option>
+                <option value="14">Next 14 days</option>
+                <option value="30">Next 30 days</option>
+              </select>
+            </div>
+            <div class="table-responsive">
+              <table class="table-modern">
+                <thead><tr><th>Member</th><th>Code</th><th>Expiry</th></tr></thead>
+                <tbody id="expiringBody"><tr><td colspan="3"><div class="skeleton" style="height:20px;"></div></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-6">
+          <div class="card-glass p-4 h-100">
+            <h6 class="mb-3" style="font-weight:600;">Recently Expired</h6>
+            <div class="table-responsive">
+              <table class="table-modern">
+                <thead><tr><th>Member</th><th>Code</th><th>Expired On</th></tr></thead>
+                <tbody id="expiredBody"><tr><td colspan="3"><div class="skeleton" style="height:20px;"></div></td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-glass p-4 mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h6 class="mb-0" style="font-weight:600;">Login Activity</h6>
+          <span class="text-secondary" style="font-size:0.8rem;">Who logged in, from where, and when</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table-modern">
+            <thead><tr><th>Login ID</th><th>Name</th><th>Role</th><th>Action</th><th>IP Address</th><th>When</th></tr></thead>
+            <tbody id="loginActivityBody"><tr><td colspan="6"><div class="skeleton" style="height:20px;"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/layout.js"></script>
+<script>
+  // Thin alias — the real implementation now lives in app.js (downloadFile),
+  // shared by every page that exports a PDF/Excel report.
+  const downloadReport = downloadFile;
+  renderLayout('reports');
+
+  async function loadLoginActivity() {
+    const tbody = document.getElementById('loginActivityBody');
+    try {
+      const res = await Api.get('/audit/logins');
+      const audits = res.data || [];
+      tbody.innerHTML = audits.length
+        ? audits.slice(0, 50).map(a => `
+            <tr>
+              <td style="font-weight:600;">${a.username || '—'}</td>
+              <td>${a.name || '—'}</td>
+              <td>${a.role || '—'}</td>
+              <td><span class="chip ${a.action === 'LOGIN_FAILED' ? 'chip-suspended' : 'chip-active'}">${a.action.replace('_', ' ')}</span></td>
+              <td>${a.ipAddress || '—'}</td>
+              <td>${new Date(a.timestamp).toLocaleString('en-IN')}</td>
+            </tr>
+          `).join('')
+        : '<tr><td colspan="6" class="text-center text-secondary py-4">No login activity yet</td></tr>';
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-secondary py-4">Could not load login activity</td></tr>';
+    }
+  }
+  loadLoginActivity();
+
+  async function loadExpiring() {
+    const tbody = document.getElementById('expiringBody');
+    const days = document.getElementById('expiryWindow').value;
+    try {
+      const res = await Api.get(`/reports/members/expiring?withinDays=${days}`);
+      const members = res.data;
+      tbody.innerHTML = members.length
+        ? members.map(m => `<tr><td style="font-weight:600;">${m.name}</td><td>${m.memberCode}</td><td><span class="chip chip-suspended">${m.expiryDate}</span></td></tr>`).join('')
+        : '<tr><td colspan="3" class="text-center text-secondary py-4">No members expiring in this window</td></tr>';
+    } catch (err) {
+      Toast.show(err.message || 'Failed to load expiring members', 'error');
+    }
+  }
+
+  async function loadExpired() {
+    const tbody = document.getElementById('expiredBody');
+    try {
+      const res = await Api.get('/reports/members/expired');
+      const members = res.data;
+      tbody.innerHTML = members.length
+        ? members.slice(0, 15).map(m => `<tr><td style="font-weight:600;">${m.name}</td><td>${m.memberCode}</td><td><span class="chip chip-expired">${m.expiryDate}</span></td></tr>`).join('')
+        : '<tr><td colspan="3" class="text-center text-secondary py-4">No expired members 🎉</td></tr>';
+    } catch (err) {
+      Toast.show(err.message || 'Failed to load expired members', 'error');
+    }
+  }
+
+  document.getElementById('expiryWindow').addEventListener('change', loadExpiring);
+
+  loadExpiring();
+  loadExpired();
+</script>
+</body>
+</html>

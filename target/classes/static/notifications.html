@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notifications · FitCore</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<link href="css/material-symbols.css" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebarRoot"></div>
+  <div class="main-content" id="mainContent">
+    <div id="topbarRoot"></div>
+    <div class="page-body">
+
+      <div class="card-glass p-4 mb-3" id="broadcastCard" style="display:none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0" style="font-weight:600;">Send Announcement</h6>
+        </div>
+        <form id="broadcastForm">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Send to</label>
+              <select class="form-select" id="broadcastAudience">
+                <option value="ALL">Everyone</option>
+                <option value="TRAINER">All Trainers</option>
+                <option value="MEMBER">All Members</option>
+              </select>
+            </div>
+            <div class="col-md-9">
+              <label class="form-label">Title</label>
+              <input type="text" class="form-control" id="broadcastTitle" placeholder="e.g. Gym closed on Sunday" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Message</label>
+              <textarea class="form-control" id="broadcastMessage" rows="2" required></textarea>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-gradient ripple mt-3" id="sendBroadcastBtn">
+            <span class="material-symbols-outlined align-middle" style="font-size:18px;">campaign</span> Send
+          </button>
+        </form>
+      </div>
+
+      <div class="card-glass p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0" style="font-weight:600;">Notifications</h6>
+        </div>
+        <div id="notificationsList">
+          <div class="skeleton mb-2" style="height:60px;"></div>
+          <div class="skeleton mb-2" style="height:60px;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/layout.js"></script>
+<script>
+  renderLayout('notifications');
+
+  const currentUser = Api.getUser();
+  if (currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'RECEPTIONIST')) {
+    document.getElementById('broadcastCard').style.display = '';
+  }
+
+  document.getElementById('broadcastForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('sendBroadcastBtn');
+    btn.disabled = true;
+    try {
+      const res = await Api.post('/notifications/broadcast', {
+        audience: document.getElementById('broadcastAudience').value,
+        title: document.getElementById('broadcastTitle').value.trim(),
+        message: document.getElementById('broadcastMessage').value.trim()
+      });
+      Toast.show(res.message || 'Announcement sent', 'success');
+      document.getElementById('broadcastForm').reset();
+    } catch (err) {
+      Toast.show(err.message || 'Failed to send announcement', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  const typeIcon = (type) => ({
+    MEMBERSHIP_EXPIRY: 'event_busy', PAYMENT_DUE: 'payments', GENERAL: 'campaign'
+  }[type] || 'notifications');
+
+  async function loadNotifications() {
+    const list = document.getElementById('notificationsList');
+    try {
+      const res = await Api.get('/notifications');
+      const items = res.data;
+      if (!items.length) {
+        list.innerHTML = '<div class="text-center text-secondary py-5">You\'re all caught up — no notifications.</div>';
+        return;
+      }
+      list.innerHTML = items.map(n => `
+        <div class="d-flex align-items-start gap-3 p-3 mb-2 rounded-3" style="background:${n.read ? 'transparent' : 'rgba(37,99,235,0.06)'}; border:1px solid var(--border);">
+          <div class="stat-icon" style="background:rgba(37,99,235,0.12); width:38px; height:38px;">
+            <span class="material-symbols-outlined" style="color:var(--secondary); font-size:20px;">${typeIcon(n.type)}</span>
+          </div>
+          <div class="flex-grow-1">
+            <div style="font-weight:600; font-size:0.9rem;">${n.title}</div>
+            <div class="text-secondary" style="font-size:0.84rem;">${n.message}</div>
+            <div class="text-secondary" style="font-size:0.72rem; margin-top:4px;">${n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}</div>
+          </div>
+          ${n.read ? '' : `<button class="btn btn-ghost btn-sm ripple" onclick="markRead('${n.id}')">Mark read</button>`}
+        </div>`).join('');
+    } catch (err) {
+      Toast.show(err.message || 'Failed to load notifications', 'error');
+    }
+  }
+
+  async function markRead(id) {
+    try {
+      await Api.put(`/notifications/${id}/read`);
+      loadNotifications();
+    } catch (err) {
+      Toast.show(err.message || 'Failed to update notification', 'error');
+    }
+  }
+
+  loadNotifications();
+</script>
+</body>
+</html>

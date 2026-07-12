@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance · FitCore</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="css/bootstrap.min.css" rel="stylesheet">
+<link href="css/material-symbols.css" rel="stylesheet">
+<link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebarRoot"></div>
+  <div class="main-content" id="mainContent">
+    <div id="topbarRoot"></div>
+    <div class="page-body">
+
+      <div class="row g-3 mb-4">
+        <div class="col-lg-5">
+          <div class="card-glass p-4 text-center">
+            <div class="mb-3">
+              <span class="material-symbols-outlined" style="font-size:48px; color:var(--secondary);">qr_code_scanner</span>
+            </div>
+            <h6 style="font-weight:600;">Scan to Check In / Out</h6>
+            <p class="text-secondary mb-3" style="font-size:0.85rem;">Select a member (simulating a QR scan) to record today's attendance.</p>
+            <select class="form-select mb-3" id="memberSelect"></select>
+            <div class="d-flex gap-2">
+              <button class="btn btn-gradient w-100 ripple" id="checkInBtn">
+                <span class="material-symbols-outlined align-middle" style="font-size:18px;">login</span> Check In
+              </button>
+              <button class="btn btn-ghost w-100 ripple" id="checkOutBtn">
+                <span class="material-symbols-outlined align-middle" style="font-size:18px;">logout</span> Check Out
+              </button>
+            </div>
+          </div>
+
+          <div class="card-glass p-4 mt-3 text-center">
+            <h6 style="font-weight:600;" class="mb-3">Member QR Code</h6>
+            <img id="qrPreview" src="" alt="QR code" style="display:none; width:180px; height:180px; margin:0 auto; border-radius:12px;">
+            <p class="text-secondary" style="font-size:0.82rem;" id="qrHint">Select a member above to generate their check-in QR code.</p>
+          </div>
+        </div>
+
+        <div class="col-lg-7">
+          <div class="card-glass p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="mb-0" style="font-weight:600;">Today's Attendance</h6>
+              <span class="chip chip-active" id="attendanceCountChip">0 checked in</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table-modern">
+                <thead><tr><th>Member</th><th>Check In</th><th>Check Out</th><th>Duration</th></tr></thead>
+                <tbody id="attendanceBody">
+                  <tr><td colspan="4"><div class="skeleton" style="height:20px;"></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/layout.js"></script>
+<script>
+  renderLayout('attendance');
+
+  let membersMap = {};
+
+  async function loadMembers() {
+    try {
+      const res = await Api.get('/members?page=0&size=200');
+      const select = document.getElementById('memberSelect');
+      select.innerHTML = res.data.content.map(m => {
+        membersMap[m.id] = m.name;
+        return `<option value="${m.id}">${m.name} (${m.memberCode})</option>`;
+      }).join('');
+      loadQrPreview();
+    } catch (err) {
+      Toast.show('Could not load members', 'error');
+    }
+  }
+
+  async function loadQrPreview() {
+    const id = document.getElementById('memberSelect').value;
+    if (!id) return;
+    try {
+      const res = await Api.get(`/members/${id}/qrcode`);
+      const img = document.getElementById('qrPreview');
+      img.src = res.data;
+      img.style.display = 'inline-block';
+      document.getElementById('qrHint').style.display = 'none';
+    } catch (err) {
+      // silent — QR is a nice-to-have
+    }
+  }
+
+  document.getElementById('memberSelect').addEventListener('change', loadQrPreview);
+
+  function formatDuration(checkIn, checkOut) {
+    if (!checkOut) return '<span class="text-secondary">In progress</span>';
+    const mins = Math.round((new Date(checkOut) - new Date(checkIn)) / 60000);
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  async function loadAttendance() {
+    const tbody = document.getElementById('attendanceBody');
+    try {
+      const res = await Api.get('/attendance/today');
+      const records = res.data;
+      document.getElementById('attendanceCountChip').textContent = `${records.length} checked in`;
+
+      if (!records.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-secondary py-4">No check-ins recorded today</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = records.map(a => `
+        <tr>
+          <td style="font-weight:600;">${membersMap[a.memberId] || a.memberId}</td>
+          <td>${a.checkIn ? new Date(a.checkIn).toLocaleTimeString() : '—'}</td>
+          <td>${a.checkOut ? new Date(a.checkOut).toLocaleTimeString() : '<span class="chip chip-suspended">Active</span>'}</td>
+          <td>${formatDuration(a.checkIn, a.checkOut)}</td>
+        </tr>`).join('');
+    } catch (err) {
+      Toast.show(err.message || 'Failed to load attendance', 'error');
+    }
+  }
+
+  document.getElementById('checkInBtn').addEventListener('click', async () => {
+    const memberId = document.getElementById('memberSelect').value;
+    if (!memberId) return;
+    try {
+      await Api.post(`/attendance/check-in?memberId=${memberId}`);
+      Toast.show('Checked in successfully', 'success');
+      loadAttendance();
+    } catch (err) {
+      Toast.show(err.message || 'Check-in failed', 'error');
+    }
+  });
+
+  document.getElementById('checkOutBtn').addEventListener('click', async () => {
+    const memberId = document.getElementById('memberSelect').value;
+    if (!memberId) return;
+    try {
+      await Api.post(`/attendance/check-out?memberId=${memberId}`);
+      Toast.show('Checked out successfully', 'success');
+      loadAttendance();
+    } catch (err) {
+      Toast.show(err.message || 'Check-out failed', 'error');
+    }
+  });
+
+  (async function init() {
+    await loadMembers();
+    await loadAttendance();
+  })();
+</script>
+</body>
+</html>
